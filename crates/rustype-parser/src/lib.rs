@@ -224,11 +224,7 @@ impl<'source> Parser<'source> {
                         nested += 1;
                         self.bump();
                     }
-                    TokenKind::RBracket if nested > 0 => {
-                        nested -= 1;
-                        self.bump();
-                    }
-                    TokenKind::RParen if nested > 0 => {
+                    TokenKind::RBracket | TokenKind::RParen if nested > 0 => {
                         nested -= 1;
                         self.bump();
                     }
