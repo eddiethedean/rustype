@@ -90,7 +90,10 @@ impl LineIndex {
     }
 
     fn line_column(&self, offset: usize) -> (usize, usize) {
-        let line_index = self.starts.partition_point(|start| *start <= offset).saturating_sub(1);
+        let line_index = self
+            .starts
+            .partition_point(|start| *start <= offset)
+            .saturating_sub(1);
         let line_start = self.starts[line_index];
         (line_index + 1, offset.saturating_sub(line_start) + 1)
     }
