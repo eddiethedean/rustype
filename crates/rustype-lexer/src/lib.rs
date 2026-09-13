@@ -146,6 +146,12 @@ impl<'source> Lexer<'source> {
             let Some(ch) = self.peek_char() else {
                 break;
             };
+            if self.at_line_start
+                && self.nesting > 0
+                && !matches!(ch, ' ' | '\x0c' | '\t')
+            {
+                self.at_line_start = false;
+            }
             match ch {
                 ' ' | '\x0c' => {
                     self.bump_char();
