@@ -260,7 +260,11 @@ impl<'source> Lexer<'source> {
             self.bump_char();
         }
         let text = &self.source[start..self.pos];
-        self.push(keyword_kind(text).unwrap_or(TokenKind::Name), start, self.pos);
+        self.push(
+            keyword_kind(text).unwrap_or(TokenKind::Name),
+            start,
+            self.pos,
+        );
     }
 
     fn lex_number(&mut self) {
@@ -515,7 +519,10 @@ mod tests {
     fn recognizes_rustype_operators() {
         let output = lex(FileId(0), "value?\n");
         assert!(output.diagnostics.is_empty());
-        assert!(output.tokens.iter().any(|token| token.kind == TokenKind::Question));
+        assert!(output
+            .tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::Question));
     }
 
     #[test]
@@ -548,12 +555,18 @@ mod tests {
     #[test]
     fn rejects_tabs() {
         let output = lex(FileId(0), "fn f() -> int:\n\treturn 1\n");
-        assert!(output.diagnostics.iter().any(|diagnostic| diagnostic.code == "RYL0001"));
+        assert!(output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "RYL0001"));
     }
 
     #[test]
     fn rejects_unterminated_strings() {
         let output = lex(FileId(0), "value = \"oops\n");
-        assert!(output.diagnostics.iter().any(|diagnostic| diagnostic.code == "RYL0003"));
+        assert!(output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "RYL0003"));
     }
 }
