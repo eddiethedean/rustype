@@ -233,7 +233,9 @@ impl<'source> Parser<'source> {
                         self.bump();
                     }
                     TokenKind::Comma | TokenKind::RParen if nested == 0 => break,
-                    _ => self.bump(),
+                    _ => {
+                        self.bump();
+                    }
                 }
             }
             if type_start == self.cursor {
