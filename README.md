@@ -73,12 +73,41 @@ Rustype does not attempt to provide:
 - Rust memory abstractions such as `Box`, `Rc`, or `Arc`
 - arbitrary Rust syntax for its own sake
 
+## Compiler bootstrap
+
+The repository now contains the first executable Rust compiler skeleton:
+
+```text
+Cargo.toml
+crates/
+  rustype-ast/
+  rustype-parser/
+  rustype-cli/
+runtime/
+  rustype_runtime/
+tests/
+  fixtures/
+```
+
+The bootstrap parser currently recognizes the first vertical slice: source-spanned `newtype` declarations and typed `fn`/`async fn` headers. It also emits stable diagnostic codes for unsupported or invalid bootstrap syntax.
+
+Run the current checker with:
+
+```bash
+cargo run -p rustype-cli -- check tests/fixtures/pass/first_slice.rpy
+```
+
+The bootstrap intentionally uses no third-party Rust dependencies. The authoritative parser strategy will be selected only after the core AST and grammar have been exercised by real implementation work.
+
 ## Language specification
 
-The first concrete language contract is now documented in:
+The first concrete language contract is documented in:
 
 - `docs/V0_SYNTAX_SPEC.md` — normative v0 syntax and feature rules
 - `docs/GRAMMAR.md` — EBNF-like parser grammar
+- `docs/AST_MODEL.md` — parser AST and source-span contract
+- `docs/HIR_MODEL.md` — resolved semantic representation
+- `docs/LOWERING_IR.md` — explicit lowering representation
 - `docs/TYPE_SYSTEM.md` — static type model
 - `docs/ERROR_MODEL.md` — `Result`, `Option`, propagation, exceptions, and panic
 - `docs/SAFETY_MODEL.md` — safe vs `unsafe` static boundaries
@@ -88,4 +117,4 @@ The rest of `docs/` contains compiler architecture, Python interoperability, too
 
 ## Status
 
-Rustype is in the language-design and architecture phase. The v0 syntax is now sufficiently specified to begin parser and compiler prototyping. Runtime representations and several interoperability details remain open and are tracked in the design documents.
+Rustype has moved from design-only into compiler prototyping. The v0 syntax, AST/HIR/lowering contracts, Rust workspace, source-span types, bootstrap parser, CLI checker, runtime ABI scaffold, fixtures, and CI gates are now in the repository. The next implementation slice is to replace the bootstrap line parser with the authoritative lexer/parser and begin Python code generation for `newtype` plus `fn`.
