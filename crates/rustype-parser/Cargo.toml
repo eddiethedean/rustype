@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 rustype-ast = { path = "../rustype-ast" }
+rustype-lexer = { path = "../rustype-lexer" }
 
 [lints]
 workspace = true
