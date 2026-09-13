@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+use std::cmp::Ordering;
+
 use rustype_ast::{Diagnostic, FileId, Span};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -203,21 +205,25 @@ impl<'source> Lexer<'source> {
         }
 
         let current = self.indents.last().copied().unwrap_or(0);
-        if width > current {
-            self.indents.push(width);
-            self.push(TokenKind::Indent, start, self.pos);
-        } else if width < current {
-            while self.indents.last().is_some_and(|indent| *indent > width) {
-                self.indents.pop();
-                self.push(TokenKind::Dedent, start, self.pos);
+        match width.cmp(&current) {
+            Ordering::Greater => {
+                self.indents.push(width);
+                self.push(TokenKind::Indent, start, self.pos);
             }
-            if self.indents.last().copied().unwrap_or(0) != width {
-                self.diagnostics.push(Diagnostic::error(
-                    "RYL0002",
-                    "inconsistent indentation",
-                    Span::new(self.file, start, self.pos),
-                ));
+            Ordering::Less => {
+                while self.indents.last().is_some_and(|indent| *indent > width) {
+                    self.indents.pop();
+                    self.push(TokenKind::Dedent, start, self.pos);
+                }
+                if self.indents.last().copied().unwrap_or(0) != width {
+                    self.diagnostics.push(Diagnostic::error(
+                        "RYL0002",
+                        "inconsistent indentation",
+                        Span::new(self.file, start, self.pos),
+                    ));
+                }
             }
+            Ordering::Equal => {}
         }
         self.at_line_start = false;
     }
