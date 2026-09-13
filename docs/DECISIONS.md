@@ -112,18 +112,100 @@ Generated code does not need to be hand-written-quality Python, but it should be
 
 A Rust-derived feature is admitted only when it solves a real Python correctness/modeling problem, lowers predictably to Python, and does not depend on Rust memory semantics.
 
+## D016 — Rustype functions use `fn`, not `def`, in v0
+
+**Status:** Accepted
+
+Rustype-defined functions and methods use `fn` or `async fn`.
+
+Plain Python `def` and `async def` are rejected in `.rpy` v0 source. Python functions remain available through imported `.py` modules.
+
+This keeps the language boundary explicit and prevents Python declarations from silently receiving Rustype semantics.
+
+## D017 — Rustype `match` arms omit Python's `case` keyword
+
+**Status:** Accepted
+
+Rustype uses:
+
+```python
+match message:
+    Quit:
+        ...
+    Move(x, y):
+        ...
+```
+
+rather than Python's `case` arm syntax.
+
+This makes closed algebraic matching concise and gives the parser a clear Rustype-specific pattern grammar.
+
+## D018 — `None` is the empty `Option` variant spelling
+
+**Status:** Accepted for v0
+
+Rustype uses `Some(value)` and `None` for `Option[T]`.
+
+The compiler disambiguates the `Option` empty variant from ordinary Python `None` using type context.
+
+## D019 — `?` supports both `Result` and `Option` in v0
+
+**Status:** Accepted
+
+For `Result[T, E]`, postfix `?` unwraps `Ok(T)` and propagates `Err(E)` from a compatible `Result`-returning function.
+
+For `Option[T]`, postfix `?` unwraps `Some(T)` and propagates `None` from an `Option`-returning function.
+
+Cross-conversion between `Option` and `Result` is not implicit in v0.
+
+## D020 — Rustype traits are structural in v0
+
+**Status:** Accepted
+
+A class satisfies a trait when its public method signatures are compatible. Explicit Rust-style `impl Trait for Type` blocks are not part of v0.
+
+This preserves Python's natural structural interface model while retaining Rust-inspired trait terminology and bounds.
+
+## D021 — Standalone `let` and `let mut` are deferred
+
+**Status:** Accepted
+
+Rustype v0 retains Python assignment syntax. `let` and `mut` are reserved for future design work but are rejected as standalone declarations.
+
+`let` is valid only as part of the v0 `if let` construct.
+
+## D022 — v0 type expressions are deliberately constrained
+
+**Status:** Accepted
+
+Declared Rustype types use Python-style names, subscriptions, and unions. Arbitrary runtime expressions, calls, lambdas, or computed values are not legal type expressions.
+
+This keeps the semantic model tractable and makes lowering predictable.
+
+## D023 — Bare `except:` is rejected in v0
+
+**Status:** Accepted
+
+Rustype requires an explicit exception type in `except` clauses. This aligns with Rustype's goal of making failure boundaries explicit while preserving Python exception interoperability.
+
+## D024 — `yield`, walrus expressions, and metaclass syntax are deferred from v0
+
+**Status:** Accepted
+
+The first compiler deliberately excludes generator semantics, `:=`, and metaclass declarations. These features can be revisited only after the core parser, type system, lowering, and source-map pipeline are stable.
+
 ## Open decisions
 
-The following still require prototyping or specification work:
+The following still require prototyping or later specification work:
 
-- whether plain Python `def` is accepted in `.rpy`
-- exact empty `Option` variant spelling and syntax
 - runtime representation of newtypes
 - runtime representation of enums/variants
-- exact semantics for `Option` with `?`
 - Python exception-to-`Result` adapter conventions
 - how Python `Any`/unknown values appear in the Rustype type lattice
-- authoritative parser implementation strategy
+- authoritative parser implementation library/strategy
 - source-map storage and traceback integration format
 - packaging/build-backend strategy
 - exact minimum supported Python version
+- whether `let`/`let mut` should become first-class post-v0 syntax
+- whether explicit trait `impl` blocks add enough value for a later language version
+- whether `where` clauses and associated types belong in Rustype
