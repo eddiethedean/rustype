@@ -20,7 +20,7 @@ Rustype deliberately does **not** implement Rust's memory model. Ownership, borr
 
 Rustype is not Rust-with-Python-syntax and not Python-with-random-Rust-keywords. Rust-inspired syntax is introduced only when it expresses a useful static guarantee more clearly than Python can.
 
-## Early language sketch
+## v0 language sketch
 
 ```python
 from fastapi import FastAPI
@@ -42,6 +42,8 @@ async fn get_user(user_id: UserId) -> Result[User, UserError]:
     return Ok(user)
 ```
 
+Rustype v0 uses `fn`/`async fn`, closed algebraic enums, structural traits, first-class `Option`/`Result`, postfix `?`, exhaustive `match`, `if let`, `newtype`, and explicit `unsafe` blocks. Plain Python `def` is intentionally not accepted in `.rpy` v0 source.
+
 The generated Python should remain inspectable, debuggable, interoperable with normal `.py` modules, and compatible with the Python package ecosystem.
 
 ## Core goals
@@ -52,7 +54,7 @@ The generated Python should remain inspectable, debuggable, interoperable with n
 - Make recoverable failure explicit with `Result[T, E]`.
 - Make optionality explicit with `Option[T]`.
 - Support data-carrying enums and exhaustive matching.
-- Model interfaces as traits backed by Python-compatible abstractions.
+- Model interfaces as traits backed by Python-compatible structural abstractions.
 - Support newtypes and typestate-oriented APIs.
 - Make dynamic or weakly typed behavior explicit through `unsafe` boundaries.
 - Produce source-aware diagnostics and tracebacks that point to `.rpy`, not generated Python.
@@ -60,7 +62,7 @@ The generated Python should remain inspectable, debuggable, interoperable with n
 
 ## Explicit non-goals
 
-Rustype will not initially attempt to provide:
+Rustype does not attempt to provide:
 
 - ownership or borrow checking
 - lifetimes
@@ -68,13 +70,22 @@ Rustype will not initially attempt to provide:
 - a new garbage collector or object model
 - a new package repository
 - a replacement for CPython
-- performance-oriented Rust abstractions such as `Box`, `Rc`, or `Arc`
+- Rust memory abstractions such as `Box`, `Rc`, or `Arc`
 - arbitrary Rust syntax for its own sake
 
-## Planned documentation
+## Language specification
 
-The `docs/` directory contains the working design specification, compiler architecture, interoperability plan, safety model, roadmap, and implementation phases.
+The first concrete language contract is now documented in:
+
+- `docs/V0_SYNTAX_SPEC.md` — normative v0 syntax and feature rules
+- `docs/GRAMMAR.md` — EBNF-like parser grammar
+- `docs/TYPE_SYSTEM.md` — static type model
+- `docs/ERROR_MODEL.md` — `Result`, `Option`, propagation, exceptions, and panic
+- `docs/SAFETY_MODEL.md` — safe vs `unsafe` static boundaries
+- `docs/DECISIONS.md` — accepted architecture and syntax decisions
+
+The rest of `docs/` contains compiler architecture, Python interoperability, tooling, roadmap, and implementation planning.
 
 ## Status
 
-Rustype is in the language-design and architecture phase. Syntax and semantics in these documents are proposals until the specification is stabilized.
+Rustype is in the language-design and architecture phase. The v0 syntax is now sufficiently specified to begin parser and compiler prototyping. Runtime representations and several interoperability details remain open and are tracked in the design documents.
