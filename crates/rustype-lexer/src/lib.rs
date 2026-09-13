@@ -145,7 +145,9 @@ impl<'source> Lexer<'source> {
                 break;
             };
             match ch {
-                ' ' | '\x0c' => self.bump_char(),
+                ' ' | '\x0c' => {
+                    self.bump_char();
+                }
                 '\t' => self.lex_tab(),
                 '#' => self.skip_comment(),
                 '\n' | '\r' => self.lex_newline(),
@@ -178,7 +180,9 @@ impl<'source> Lexer<'source> {
                     width += 1;
                     self.bump_char();
                 }
-                '\x0c' => self.bump_char(),
+                '\x0c' => {
+                    self.bump_char();
+                }
                 '\t' => {
                     let tab_start = self.pos;
                     self.bump_char();
