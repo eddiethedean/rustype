@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/rustype-ast",
+    "crates/rustype-lexer",
     "crates/rustype-parser",
     "crates/rustype-cli",
 ]
