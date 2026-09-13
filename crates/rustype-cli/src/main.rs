@@ -52,7 +52,7 @@ fn run() -> Result<(), String> {
 
     let line_index = LineIndex::new(&source);
     for diagnostic in &output.diagnostics {
-        let (line, column) = line_index.line_column(diagnostic.span.start as usize);
+        let (line, column) = line_index.line_column(diagnostic.span.start);
         eprintln!(
             "{}:{}:{}: error[{}]: {}",
             path.display(),
