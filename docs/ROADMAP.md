@@ -28,7 +28,8 @@ Goal: prove `.rpy -> .py` compilation.
 Deliverables:
 
 - Rust CLI skeleton
-- lexer/parser
+- lexer/token stream with indentation
+- parser
 - AST with source spans
 - Python code emitter
 - support for normal Python expressions/statements needed by examples
@@ -132,15 +133,21 @@ Exit gate:
 
 A Rustype project can be developed and packaged without manually managing generated Python.
 
-## Phase 7 — LSP and editor experience
+## Phase 7 — VS Code linter and editor experience
 
-Goal: make `.rpy` viable for daily development.
+Goal: make `.rpy` viable for daily development, starting with immediate linting feedback.
 
 Deliverables:
 
+- official VS Code extension
+- `.rpy` language registration
 - syntax highlighting
+- inline lexer/parser/compiler diagnostics
+- Problems-panel integration
+- stable diagnostic-code presentation
+- `rustype explain` integration
+- `rustype lsp`
 - incremental parser integration
-- diagnostics
 - hover
 - completion
 - go-to-definition
@@ -148,10 +155,13 @@ Deliverables:
 - rename
 - trait navigation
 - enum/match code actions
+- `Result`/`Option` quick fixes
+
+The extension should remain a thin client over compiler/LSP diagnostics. Lint rules must not be reimplemented in TypeScript.
 
 Exit gate:
 
-Developing a medium-sized `.rpy` project in VS Code or another LSP client feels comparable to modern typed Python tooling.
+Developing a medium-sized `.rpy` project in VS Code feels comparable to modern typed Python tooling, with compiler diagnostics appearing continuously while editing.
 
 ## Phase 8 — Stabilization toward 1.0
 
