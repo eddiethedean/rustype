@@ -9,13 +9,13 @@ pub struct NodeId(pub u32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Span {
     pub file: FileId,
-    pub start: u32,
-    pub end: u32,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Span {
     #[must_use]
-    pub const fn new(file: FileId, start: u32, end: u32) -> Self {
+    pub const fn new(file: FileId, start: usize, end: usize) -> Self {
         Self { file, start, end }
     }
 }
