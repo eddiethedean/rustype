@@ -33,15 +33,14 @@ pub fn parse_module(file: FileId, source: &str) -> ParseOutput {
         let line = raw_line.trim_end_matches(['\r', '\n']);
         let trimmed = line.trim();
         let start = offset + line.len().saturating_sub(line.trim_start().len());
-        let end = offset + line.len();
-        let span = Span::new(file, start as u32, end as u32);
+        let span = Span::new(file, start, offset + line.len());
 
         if trimmed.is_empty() || trimmed.starts_with('#') {
             offset += raw_line.len();
             continue;
         }
 
-        if line.starts_with('\t') || line.contains("\t") {
+        if line.contains('\t') {
             diagnostics.push(Diagnostic::error(
                 "RYP0001",
                 "tabs are not allowed in Rustype v0 source",
@@ -58,50 +57,64 @@ pub fn parse_module(file: FileId, source: &str) -> ParseOutput {
             continue;
         }
 
-        if let Some(item) = parse_newtype(trimmed, file, start as u32, &mut ids, &mut diagnostics) {
-            items.push(Item::Newtype(item));
-        } else if let Some(item) =
-            parse_function_header(trimmed, file, start as u32, &mut ids, &mut diagnostics)
-        {
-            items.push(Item::Function(item));
-        } else if trimmed.starts_with("def ") || trimmed.starts_with("async def ") {
-            diagnostics.push(Diagnostic::error(
-                "RYP0002",
-                "use `fn` or `async fn` in .rpy source; Python `def` is not valid Rustype v0 syntax",
-                span,
-            ));
-        } else if trimmed.starts_with("newtype ")
-            || trimmed.starts_with("fn ")
-            || trimmed.starts_with("async fn ")
-        {
-            // A construct prefix was recognized but parsing failed; a targeted diagnostic
-            // has already been emitted by the parser helper.
-        } else {
-            diagnostics.push(Diagnostic::error(
-                "RYP0003",
-                format!("unsupported top-level syntax in bootstrap parser: `{trimmed}`"),
-                span,
-            ));
-        }
-
+        parse_top_level(
+            trimmed,
+            file,
+            start,
+            span,
+            &mut ids,
+            &mut items,
+            &mut diagnostics,
+        );
         offset += raw_line.len();
     }
 
-    let module_span = Span::new(file, 0, source.len() as u32);
     ParseOutput {
         module: Module {
             id: ids.next(),
-            span: module_span,
+            span: Span::new(file, 0, source.len()),
             items,
         },
         diagnostics,
     }
 }
 
+fn parse_top_level(
+    line: &str,
+    file: FileId,
+    base: usize,
+    span: Span,
+    ids: &mut IdGen,
+    items: &mut Vec<Item>,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(item) = parse_newtype(line, file, base, ids, diagnostics) {
+        items.push(Item::Newtype(item));
+    } else if let Some(item) = parse_function_header(line, file, base, ids, diagnostics) {
+        items.push(Item::Function(item));
+    } else if line.starts_with("def ") || line.starts_with("async def ") {
+        diagnostics.push(Diagnostic::error(
+            "RYP0002",
+            "use `fn` or `async fn` in .rpy source; Python `def` is not valid Rustype v0 syntax",
+            span,
+        ));
+    } else if !starts_known_construct(line) {
+        diagnostics.push(Diagnostic::error(
+            "RYP0003",
+            format!("unsupported top-level syntax in bootstrap parser: `{line}`"),
+            span,
+        ));
+    }
+}
+
+fn starts_known_construct(line: &str) -> bool {
+    line.starts_with("newtype ") || line.starts_with("fn ") || line.starts_with("async fn ")
+}
+
 fn parse_newtype(
     line: &str,
     file: FileId,
-    base: u32,
+    base: usize,
     ids: &mut IdGen,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<NewtypeDecl> {
@@ -110,7 +123,7 @@ fn parse_newtype(
         diagnostics.push(Diagnostic::error(
             "RYP0101",
             "expected `newtype Name = Type`",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     };
@@ -121,29 +134,21 @@ fn parse_newtype(
         diagnostics.push(Diagnostic::error(
             "RYP0102",
             "invalid newtype declaration",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     }
 
-    let name_offset = line.find(name).unwrap_or(0) as u32;
-    let ty_offset = line.rfind(ty).unwrap_or(0) as u32;
+    let name_offset = line.find(name).unwrap_or(0);
+    let ty_offset = line.rfind(ty).unwrap_or(0);
 
     Some(NewtypeDecl {
         id: ids.next(),
-        span: Span::new(file, base, base + line.len() as u32),
-        name: Ident {
-            id: ids.next(),
-            span: Span::new(
-                file,
-                base + name_offset,
-                base + name_offset + name.len() as u32,
-            ),
-            name: name.to_owned(),
-        },
+        span: line_span(file, base, line),
+        name: ident(ids, file, base + name_offset, name),
         underlying: TypeExpr {
             id: ids.next(),
-            span: Span::new(file, base + ty_offset, base + ty_offset + ty.len() as u32),
+            span: Span::new(file, base + ty_offset, base + ty_offset + ty.len()),
             text: ty.to_owned(),
         },
     })
@@ -152,23 +157,16 @@ fn parse_newtype(
 fn parse_function_header(
     line: &str,
     file: FileId,
-    base: u32,
+    base: usize,
     ids: &mut IdGen,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Option<FunctionDecl> {
-    let (is_async, rest) = if let Some(rest) = line.strip_prefix("async fn ") {
-        (true, rest)
-    } else if let Some(rest) = line.strip_prefix("fn ") {
-        (false, rest)
-    } else {
-        return None;
-    };
-
+    let (is_async, rest) = function_prefix(line)?;
     let Some((signature, return_and_colon)) = rest.split_once("->") else {
         diagnostics.push(Diagnostic::error(
             "RYP0201",
             "Rustype functions require an explicit return type",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     };
@@ -176,17 +174,63 @@ fn parse_function_header(
         diagnostics.push(Diagnostic::error(
             "RYP0202",
             "expected `:` after function signature",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     };
     let return_ty = return_raw.trim();
+    if return_ty.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "RYP0201",
+            "Rustype functions require an explicit return type",
+            line_span(file, base, line),
+        ));
+        return None;
+    }
 
+    let (name, params_raw) = parse_signature_shape(signature, file, base, line, diagnostics)?;
+    let params = parse_params(params_raw, line, file, base, ids, diagnostics)?;
+    let name_offset = line.find(name).unwrap_or(0);
+    let return_offset = line.rfind(return_ty).unwrap_or(0);
+
+    Some(FunctionDecl {
+        id: ids.next(),
+        span: line_span(file, base, line),
+        is_async,
+        name: ident(ids, file, base + name_offset, name),
+        params,
+        return_type: TypeExpr {
+            id: ids.next(),
+            span: Span::new(
+                file,
+                base + return_offset,
+                base + return_offset + return_ty.len(),
+            ),
+            text: return_ty.to_owned(),
+        },
+    })
+}
+
+fn function_prefix(line: &str) -> Option<(bool, &str)> {
+    if let Some(rest) = line.strip_prefix("async fn ") {
+        Some((true, rest))
+    } else {
+        line.strip_prefix("fn ").map(|rest| (false, rest))
+    }
+}
+
+fn parse_signature_shape<'a>(
+    signature: &'a str,
+    file: FileId,
+    base: usize,
+    line: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<(&'a str, &'a str)> {
     let Some(open) = signature.find('(') else {
         diagnostics.push(Diagnostic::error(
             "RYP0203",
             "expected `(` in function signature",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     };
@@ -194,11 +238,16 @@ fn parse_function_header(
         diagnostics.push(Diagnostic::error(
             "RYP0204",
             "expected `)` in function signature",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     };
     if close < open {
+        diagnostics.push(Diagnostic::error(
+            "RYP0204",
+            "malformed function parameter list",
+            line_span(file, base, line),
+        ));
         return None;
     }
 
@@ -207,13 +256,25 @@ fn parse_function_header(
         diagnostics.push(Diagnostic::error(
             "RYP0205",
             "invalid function name",
-            Span::new(file, base, base + line.len() as u32),
+            line_span(file, base, line),
         ));
         return None;
     }
 
-    let params_raw = &signature[open + 1..close];
+    Some((name, &signature[open + 1..close]))
+}
+
+fn parse_params(
+    params_raw: &str,
+    line: &str,
+    file: FileId,
+    base: usize,
+    ids: &mut IdGen,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Vec<Param>> {
     let mut params = Vec::new();
+    let mut search_from = line.find('(').map_or(0, |index| index + 1);
+
     for raw in params_raw
         .split(',')
         .map(str::trim)
@@ -223,7 +284,7 @@ fn parse_function_header(
             diagnostics.push(Diagnostic::error(
                 "RYP0206",
                 format!("parameter `{raw}` requires a type annotation"),
-                Span::new(file, base, base + line.len() as u32),
+                line_span(file, base, line),
             ));
             return None;
         };
@@ -233,53 +294,40 @@ fn parse_function_header(
             diagnostics.push(Diagnostic::error(
                 "RYP0207",
                 "invalid function parameter",
-                Span::new(file, base, base + line.len() as u32),
+                line_span(file, base, line),
             ));
             return None;
         }
-        let local = line.find(param_name).unwrap_or(0) as u32;
+
+        let local = line[search_from..]
+            .find(param_name)
+            .map_or(search_from, |index| search_from + index);
+        search_from = local + raw.len();
         params.push(Param {
             id: ids.next(),
-            span: Span::new(file, base + local, base + local + raw.len() as u32),
-            name: Ident {
-                id: ids.next(),
-                span: Span::new(file, base + local, base + local + param_name.len() as u32),
-                name: param_name.to_owned(),
-            },
+            span: Span::new(file, base + local, base + local + raw.len()),
+            name: ident(ids, file, base + local, param_name),
             annotation: TypeExpr {
                 id: ids.next(),
-                span: Span::new(file, base + local, base + local + raw.len() as u32),
+                span: Span::new(file, base + local, base + local + raw.len()),
                 text: annotation.to_owned(),
             },
         });
     }
 
-    let name_offset = line.find(name).unwrap_or(0) as u32;
-    let return_offset = line.rfind(return_ty).unwrap_or(0) as u32;
-    Some(FunctionDecl {
+    Some(params)
+}
+
+fn ident(ids: &mut IdGen, file: FileId, start: usize, name: &str) -> Ident {
+    Ident {
         id: ids.next(),
-        span: Span::new(file, base, base + line.len() as u32),
-        is_async,
-        name: Ident {
-            id: ids.next(),
-            span: Span::new(
-                file,
-                base + name_offset,
-                base + name_offset + name.len() as u32,
-            ),
-            name: name.to_owned(),
-        },
-        params,
-        return_type: TypeExpr {
-            id: ids.next(),
-            span: Span::new(
-                file,
-                base + return_offset,
-                base + return_offset + return_ty.len() as u32,
-            ),
-            text: return_ty.to_owned(),
-        },
-    })
+        span: Span::new(file, start, start + name.len()),
+        name: name.to_owned(),
+    }
+}
+
+fn line_span(file: FileId, base: usize, line: &str) -> Span {
+    Span::new(file, base, base + line.len())
 }
 
 fn is_identifier(value: &str) -> bool {
@@ -316,5 +364,15 @@ mod tests {
         let output = parse_module(FileId(0), "fn greet(name: str) -> str:\n\treturn name\n");
         assert_eq!(output.diagnostics.len(), 1);
         assert_eq!(output.diagnostics[0].code, "RYP0001");
+    }
+
+    #[test]
+    fn tracks_repeated_parameter_names_by_position() {
+        let source = "fn same(same: str, other: str) -> str:\n    return other\n";
+        let output = parse_module(FileId(0), source);
+        let Item::Function(function) = &output.module.items[0] else {
+            panic!("expected function");
+        };
+        assert!(function.params[0].name.span.start > function.name.span.start);
     }
 }
