@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "crates/rustype-ast",
+    "crates/rustype-parser",
+    "crates/rustype-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+rust-version = "1.80"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
