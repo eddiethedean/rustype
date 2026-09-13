@@ -194,6 +194,66 @@ Rustype requires an explicit exception type in `except` clauses. This aligns wit
 
 The first compiler deliberately excludes generator semantics, `:=`, and metaclass declarations. These features can be revisited only after the core parser, type system, lowering, and source-map pipeline are stable.
 
+## D025 — Compiler representations are split into AST, HIR, and lowering IR
+
+**Status:** Accepted
+
+Rustype uses three distinct compiler representations:
+
+```text
+AST -> HIR -> lowering IR -> Python
+```
+
+The AST represents source syntax only. HIR owns resolved names, semantic types, variants, traits, propagation modes, exhaustiveness, and safety classification. Lowering IR owns explicit control flow and backend-oriented operations.
+
+This separation is required to keep parsing, semantics, and Python code generation independently testable.
+
+## D026 — The parser never desugars postfix `?`
+
+**Status:** Accepted
+
+The parser represents postfix `?` as a first-class `TryExpr` node.
+
+HIR determines whether it is `Result` or `Option` propagation and validates the enclosing return type. Only lowering IR expands it into early-return control flow.
+
+This prevents syntax processing from depending on type information.
+
+## D027 — Every compiler node preserves source origin
+
+**Status:** Accepted
+
+AST nodes carry source spans. HIR nodes preserve source origin. Lowering nodes and compiler-generated temporaries retain an origin pointing back to the relevant `.rpy` span.
+
+Source positions are represented using UTF-8 byte offsets with line/column information derived from a file line index.
+
+This is the foundation for diagnostics, source maps, and Rustype-aware tracebacks.
+
+## D028 — Dynamic Python is represented explicitly in the semantic type model
+
+**Status:** Accepted
+
+Untyped or insufficiently typed Python interoperability resolves to a dedicated dynamic semantic type rather than silently behaving as universally safe `Any`.
+
+Operations that Rustype cannot prove safe must either be narrowed/validated according to language rules or occur within an explicit `unsafe` boundary.
+
+The internal working name for this type is `PythonDynamic`.
+
+## D029 — Lowering IR is structured control flow, not SSA, in v0
+
+**Status:** Accepted
+
+The v0 lowering IR uses explicit blocks, temporaries, branches, variant dispatch, returns, and runtime operations without requiring SSA form.
+
+Block and temporary IDs should nevertheless be stable compiler identities so a CFG or SSA layer can be added later without redesigning source semantics.
+
+## D030 — `Result` error propagation uses identity compatibility in v0
+
+**Status:** Accepted
+
+For v0, postfix `?` on `Result[T, E]` propagates errors when the source error type is directly compatible with the enclosing `Result` error type.
+
+Rust-style `From` conversion or an equivalent generalized conversion mechanism is deferred. HIR records propagation compatibility explicitly so this can be extended later without changing syntax.
+
 ## Open decisions
 
 The following still require prototyping or later specification work:
@@ -201,7 +261,6 @@ The following still require prototyping or later specification work:
 - runtime representation of newtypes
 - runtime representation of enums/variants
 - Python exception-to-`Result` adapter conventions
-- how Python `Any`/unknown values appear in the Rustype type lattice
 - authoritative parser implementation library/strategy
 - source-map storage and traceback integration format
 - packaging/build-backend strategy
@@ -209,3 +268,4 @@ The following still require prototyping or later specification work:
 - whether `let`/`let mut` should become first-class post-v0 syntax
 - whether explicit trait `impl` blocks add enough value for a later language version
 - whether `where` clauses and associated types belong in Rustype
+- exact shadowing rules for Rustype intrinsics such as `Some`, `Ok`, and `Err`
