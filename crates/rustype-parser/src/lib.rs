@@ -108,9 +108,16 @@ impl<'source> Parser<'source> {
     }
 
     fn parse_newtype(&mut self) -> Option<NewtypeDecl> {
-        let start = self.expect(TokenKind::Newtype, "RYP0101", "expected `newtype`")?.span.start;
+        let start = self
+            .expect(TokenKind::Newtype, "RYP0101", "expected `newtype`")?
+            .span
+            .start;
         let name_token = self.expect(TokenKind::Name, "RYP0102", "expected newtype name")?;
-        self.expect(TokenKind::Assign, "RYP0101", "expected `=` in newtype declaration")?;
+        self.expect(
+            TokenKind::Assign,
+            "RYP0101",
+            "expected `=` in newtype declaration",
+        )?;
         let type_start = self.cursor;
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
             self.bump();
@@ -147,22 +154,42 @@ impl<'source> Parser<'source> {
         };
 
         let name_token = self.expect(TokenKind::Name, "RYP0205", "expected function name")?;
-        self.expect(TokenKind::LParen, "RYP0203", "expected `(` in function signature")?;
+        self.expect(
+            TokenKind::LParen,
+            "RYP0203",
+            "expected `(` in function signature",
+        )?;
         let params = self.parse_params()?;
-        self.expect(TokenKind::RParen, "RYP0204", "expected `)` in function signature")?;
-        self.expect(TokenKind::Arrow, "RYP0201", "Rustype functions require an explicit return type")?;
+        self.expect(
+            TokenKind::RParen,
+            "RYP0204",
+            "expected `)` in function signature",
+        )?;
+        self.expect(
+            TokenKind::Arrow,
+            "RYP0201",
+            "Rustype functions require an explicit return type",
+        )?;
 
         let return_start = self.cursor;
-        while !self.at(TokenKind::Colon) && !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+        while !self.at(TokenKind::Colon) && !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof)
+        {
             self.bump();
         }
         if return_start == self.cursor {
-            self.error_here("RYP0201", "Rustype functions require an explicit return type");
+            self.error_here(
+                "RYP0201",
+                "Rustype functions require an explicit return type",
+            );
             self.skip_line();
             return None;
         }
         let return_span = self.span_for_range(return_start, self.cursor);
-        let colon = self.expect(TokenKind::Colon, "RYP0202", "expected `:` after function signature")?;
+        let colon = self.expect(
+            TokenKind::Colon,
+            "RYP0202",
+            "expected `:` after function signature",
+        )?;
         let end = colon.span.end;
         self.take(TokenKind::Newline);
         self.skip_suite();
@@ -184,7 +211,11 @@ impl<'source> Parser<'source> {
                 continue;
             }
             let name_token = self.expect(TokenKind::Name, "RYP0207", "expected parameter name")?;
-            self.expect(TokenKind::Colon, "RYP0206", "function parameters require type annotations")?;
+            self.expect(
+                TokenKind::Colon,
+                "RYP0206",
+                "function parameters require type annotations",
+            )?;
             let type_start = self.cursor;
             let mut nested = 0usize;
             while !self.at(TokenKind::Eof) {
@@ -244,7 +275,12 @@ impl<'source> Parser<'source> {
         self.take(TokenKind::Newline);
     }
 
-    fn expect(&mut self, kind: TokenKind, code: &'static str, message: &'static str) -> Option<Token> {
+    fn expect(
+        &mut self,
+        kind: TokenKind,
+        code: &'static str,
+        message: &'static str,
+    ) -> Option<Token> {
         if self.at(kind) {
             Some(self.bump())
         } else {
@@ -343,13 +379,19 @@ mod tests {
     #[test]
     fn rejects_python_def() {
         let output = parse_module(FileId(0), "def greet(name: str) -> str:\n    return name\n");
-        assert!(output.diagnostics.iter().any(|diagnostic| diagnostic.code == "RYP0002"));
+        assert!(output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "RYP0002"));
     }
 
     #[test]
     fn forwards_lexer_diagnostics() {
         let output = parse_module(FileId(0), "fn greet(name: str) -> str:\n\treturn name\n");
-        assert!(output.diagnostics.iter().any(|diagnostic| diagnostic.code == "RYL0001"));
+        assert!(output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "RYL0001"));
     }
 
     #[test]
