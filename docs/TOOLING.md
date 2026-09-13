@@ -70,11 +70,57 @@ Planned capabilities:
 - exhaustive-match assistance
 - code actions for wrapping in `Ok`, `Err`, `Some`, etc.
 
-The LSP should reuse the compiler parser, semantic model, and incremental caches rather than implementing a second analyzer.
+The LSP should reuse the compiler lexer, parser, semantic model, source database, and incremental caches rather than implementing a second analyzer.
+
+## VS Code extension and linter
+
+VS Code support is a first-class deliverable rather than a generic-LSP afterthought.
+
+The extension should be intentionally thin: analysis belongs in the Rust compiler/LSP core, while the extension provides editor integration and presentation.
+
+The first useful VS Code milestone is a Rustype linter experience for `.rpy` files:
+
+- register `.rpy` as the Rustype language
+- syntax highlighting
+- start/manage `rustype lsp`
+- publish lexer, parser, and compiler diagnostics inline
+- show stable diagnostic codes and source ranges
+- Problems-panel integration
+- quick links or commands for `rustype explain <code>`
+- project/workspace discovery through `pyproject.toml`
+- configurable path to the Rustype binary for development installs
+
+Later extension capabilities should include:
+
+- hover and inferred types
+- completion
+- go-to-definition and references
+- rename
+- trait implementation navigation
+- enum variant completion
+- non-exhaustive-match quick fixes
+- `Result`/`Option` code actions
+- safe/unsafe boundary hints
+- run/check/build commands
+- traceback navigation back to `.rpy`
+
+The extension should not duplicate lint rules in TypeScript. The Rustype compiler must remain the single source of truth so CLI, CI, VS Code, and every other LSP client report the same diagnostics.
+
+A likely repository layout is:
+
+```text
+editors/
+    vscode/
+        package.json
+        syntaxes/
+        src/
+```
+
+The extension can begin with a TextMate grammar and process-backed diagnostic adapter if necessary, then transition to the shared LSP as soon as `rustype lsp` is available.
 
 ## Syntax highlighting
 
-Early editor support can use a Tree-sitter grammar or TextMate grammar while the full LSP is developed.
+Early editor support can use a Tree-sitter grammar or TextMate grammar while the full LSP is developed. The VS Code extension should ship the first maintained grammar so `.rpy` has useful highlighting from the earliest developer preview.
 
 ## Formatter
 
